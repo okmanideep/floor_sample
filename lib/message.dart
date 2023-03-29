@@ -2,7 +2,7 @@ import 'package:floor/floor.dart';
 
 @Entity(tableName: 'messages')
 class Message {
-	@PrimaryKey(autoGenerate: true)
+	@PrimaryKey()
 	String id;
 	String text;
 	@ColumnInfo(name: 'updated_at')

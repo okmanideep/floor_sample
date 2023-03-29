@@ -85,7 +85,7 @@ class _$MessageDatabase extends MessageDatabase {
       },
       onCreate: (database, version) async {
         await database.execute(
-            'CREATE TABLE IF NOT EXISTS `messages` (`id` TEXT PRIMARY KEY AUTOINCREMENT NOT NULL, `text` TEXT NOT NULL, `updated_at` INTEGER NOT NULL)');
+            'CREATE TABLE IF NOT EXISTS `messages` (`id` TEXT NOT NULL, `text` TEXT NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY (`id`))');
 
         await callback?.onCreate?.call(database, version);
       },
@@ -136,8 +136,8 @@ class _$MessageDao extends MessageDao {
   }
 
   @override
-  Stream<List<Message>> getMessagesAfter(
-    int after,
+  Stream<List<Message>> getMessagesNewerThan(
+    int timestamp,
     int limit,
   ) {
     return _queryAdapter.queryListStream(
@@ -146,14 +146,14 @@ class _$MessageDao extends MessageDao {
             id: row['id'] as String,
             text: row['text'] as String,
             updatedAt: row['updated_at'] as int),
-        arguments: [after, limit],
+        arguments: [timestamp, limit],
         queryableName: 'messages',
         isView: false);
   }
 
   @override
-  Stream<List<Message>> getMessagesBefore(
-    int before,
+  Stream<List<Message>> getMessagesOlderThan(
+    int timestamp,
     int limit,
   ) {
     return _queryAdapter.queryListStream(
@@ -162,23 +162,20 @@ class _$MessageDao extends MessageDao {
             id: row['id'] as String,
             text: row['text'] as String,
             updatedAt: row['updated_at'] as int),
-        arguments: [before, limit],
+        arguments: [timestamp, limit],
         queryableName: 'messages',
         isView: false);
   }
 
   @override
-  Stream<List<Message>> getMessagesUpto(
-    int upTo,
-    int limit,
-  ) {
+  Stream<List<Message>> getOldestMessages(int limit) {
     return _queryAdapter.queryListStream(
-        'SELECT * FROM messages WHERE updated_at <= ?1 ORDER BY updated_at DESC LIMIT ?2',
+        'SELECT * FROM messages ORDER BY updated_at DESC LIMIT ?1',
         mapper: (Map<String, Object?> row) => Message(
             id: row['id'] as String,
             text: row['text'] as String,
             updatedAt: row['updated_at'] as int),
-        arguments: [upTo, limit],
+        arguments: [limit],
         queryableName: 'messages',
         isView: false);
   }

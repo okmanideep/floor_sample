@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:floor/floor.dart';
 import 'package:floor_sample/message.dart';
 import 'package:injectable/injectable.dart';
+import 'package:sqflite/sqflite.dart' as sqflite;
 
 part 'database.g.dart';
 
@@ -17,16 +20,16 @@ abstract class MessageDao {
   Stream<List<Message>> getLatestMessages(int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at > :after ORDER BY updated_at DESC LIMIT :limit')
-  Stream<List<Message>> getMessagesAfter(int after, int limit);
+      'SELECT * FROM messages WHERE updated_at > :timestamp ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getMessagesNewerThan(int timestamp, int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at < :before ORDER BY updated_at DESC LIMIT :limit')
-  Stream<List<Message>> getMessagesBefore(int before, int limit);
+      'SELECT * FROM messages WHERE updated_at < :timestamp ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getMessagesOlderThan(int timestamp, int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at <= :upTo ORDER BY updated_at DESC LIMIT :limit')
-  Stream<List<Message>> getMessagesUpto(int upTo, int limit);
+      'SELECT * FROM messages ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getOldestMessages(int limit);
 
   @Query(
       'SELECT * FROM messages WHERE updated_at <= :to AND updated_at >= :from ORDER BY updated_at DESC LIMIT :limit')
@@ -59,25 +62,25 @@ class MessageStore implements MessageDao {
   }
 
   @override
-  Stream<List<Message>> getMessagesAfter(int after, int limit) async* {
+  Stream<List<Message>> getMessagesNewerThan(int timestamp, int limit) async* {
     var dao = await _dao();
-    await for (var messages in dao.getMessagesAfter(after, limit)) {
+    await for (var messages in dao.getMessagesNewerThan(timestamp, limit)) {
       yield messages;
     }
   }
 
   @override
-  Stream<List<Message>> getMessagesUpto(int upTo, int limit) async* {
+  Stream<List<Message>> getOldestMessages(int limit) async* {
     var dao = await _dao();
-    await for (var messages in dao.getMessagesUpto(upTo, limit)) {
+    await for (var messages in dao.getOldestMessages(limit)) {
       yield messages;
     }
   }
 
   @override
-  Stream<List<Message>> getMessagesBefore(int before, int limit) async* {
+  Stream<List<Message>> getMessagesOlderThan(int timestamp, int limit) async* {
     var dao = await _dao();
-    await for (var messages in dao.getMessagesBefore(before, limit)) {
+    await for (var messages in dao.getMessagesOlderThan(timestamp, limit)) {
       yield messages;
     }
   }
