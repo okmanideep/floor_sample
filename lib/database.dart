@@ -13,16 +13,24 @@ abstract class MessageDao {
   Future<void> insertMessages(List<Message> messages);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at > :since ORDER BY updated_at DESC LIMIT :limit')
-  Stream<List<Message>> getMessagesSince(int since, int limit);
+      'SELECT * FROM messages ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getLatestMessages(int limit);
+
+  @Query(
+      'SELECT * FROM messages WHERE updated_at > :after ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getMessagesAfter(int after, int limit);
 
   @Query(
       'SELECT * FROM messages WHERE updated_at < :before ORDER BY updated_at DESC LIMIT :limit')
   Stream<List<Message>> getMessagesBefore(int before, int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at < :before AND updated_at > :after ORDER BY updated_at DESC LIMIT :limit')
-  Stream<List<Message>> getMessagesBetween(int before, int after, int limit);
+      'SELECT * FROM messages WHERE updated_at <= :upTo ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getMessagesUpto(int upTo, int limit);
+
+  @Query(
+      'SELECT * FROM messages WHERE updated_at <= :to AND updated_at >= :from ORDER BY updated_at DESC LIMIT :limit')
+  Stream<List<Message>> getMessagesBetween(int from, int to, int limit);
 }
 
 @Database(version: 1, entities: [Message])
@@ -43,9 +51,25 @@ class MessageStore implements MessageDao {
   }
 
   @override
-  Stream<List<Message>> getMessagesSince(int since, int limit) async* {
+  Stream<List<Message>> getLatestMessages(int limit) async* {
     var dao = await _dao();
-    await for (var messages in dao.getMessagesSince(since, limit)) {
+    await for (var messages in dao.getLatestMessages(limit)) {
+      yield messages;
+    }
+  }
+
+  @override
+  Stream<List<Message>> getMessagesAfter(int after, int limit) async* {
+    var dao = await _dao();
+    await for (var messages in dao.getMessagesAfter(after, limit)) {
+      yield messages;
+    }
+  }
+
+  @override
+  Stream<List<Message>> getMessagesUpto(int upTo, int limit) async* {
+    var dao = await _dao();
+    await for (var messages in dao.getMessagesUpto(upTo, limit)) {
       yield messages;
     }
   }
@@ -59,9 +83,9 @@ class MessageStore implements MessageDao {
   }
 
   @override
-  Stream<List<Message>> getMessagesBetween(int before, int after, int limit) async* {
+  Stream<List<Message>> getMessagesBetween(int from, int to, int limit) async* {
     var dao = await _dao();
-    await for (var messages in dao.getMessagesBetween(before, after, limit)) {
+    await for (var messages in dao.getMessagesBetween(from, to, limit)) {
       yield messages;
     }
   }

@@ -136,8 +136,8 @@ class _$MessageDao extends MessageDao {
   }
 
   @override
-  Stream<List<Message>> getMessagesSince(
-    int since,
+  Stream<List<Message>> getMessagesAfter(
+    int after,
     int limit,
   ) {
     return _queryAdapter.queryListStream(
@@ -146,7 +146,56 @@ class _$MessageDao extends MessageDao {
             id: row['id'] as String,
             text: row['text'] as String,
             updatedAt: row['updated_at'] as int),
-        arguments: [since, limit],
+        arguments: [after, limit],
+        queryableName: 'messages',
+        isView: false);
+  }
+
+  @override
+  Stream<List<Message>> getMessagesBefore(
+    int before,
+    int limit,
+  ) {
+    return _queryAdapter.queryListStream(
+        'SELECT * FROM messages WHERE updated_at < ?1 ORDER BY updated_at DESC LIMIT ?2',
+        mapper: (Map<String, Object?> row) => Message(
+            id: row['id'] as String,
+            text: row['text'] as String,
+            updatedAt: row['updated_at'] as int),
+        arguments: [before, limit],
+        queryableName: 'messages',
+        isView: false);
+  }
+
+  @override
+  Stream<List<Message>> getMessagesUpto(
+    int upTo,
+    int limit,
+  ) {
+    return _queryAdapter.queryListStream(
+        'SELECT * FROM messages WHERE updated_at <= ?1 ORDER BY updated_at DESC LIMIT ?2',
+        mapper: (Map<String, Object?> row) => Message(
+            id: row['id'] as String,
+            text: row['text'] as String,
+            updatedAt: row['updated_at'] as int),
+        arguments: [upTo, limit],
+        queryableName: 'messages',
+        isView: false);
+  }
+
+  @override
+  Stream<List<Message>> getMessagesBetween(
+    int from,
+    int to,
+    int limit,
+  ) {
+    return _queryAdapter.queryListStream(
+        'SELECT * FROM messages WHERE updated_at <= ?2 AND updated_at >= ?1 ORDER BY updated_at DESC LIMIT ?3',
+        mapper: (Map<String, Object?> row) => Message(
+            id: row['id'] as String,
+            text: row['text'] as String,
+            updatedAt: row['updated_at'] as int),
+        arguments: [from, to, limit],
         queryableName: 'messages',
         isView: false);
   }
@@ -154,5 +203,11 @@ class _$MessageDao extends MessageDao {
   @override
   Future<void> insertMessage(Message message) async {
     await _messageInsertionAdapter.insert(message, OnConflictStrategy.replace);
+  }
+
+  @override
+  Future<void> insertMessages(List<Message> messages) async {
+    await _messageInsertionAdapter.insertList(
+        messages, OnConflictStrategy.replace);
   }
 }
