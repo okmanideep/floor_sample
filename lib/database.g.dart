@@ -184,15 +184,14 @@ class _$MessageDao extends MessageDao {
   Stream<List<Message>> getMessagesBetween(
     int from,
     int to,
-    int limit,
   ) {
     return _queryAdapter.queryListStream(
-        'SELECT * FROM messages WHERE updated_at <= ?2 AND updated_at >= ?1 ORDER BY updated_at DESC LIMIT ?3',
+        'SELECT * FROM messages WHERE updated_at <= ?2 AND updated_at >= ?1 ORDER BY updated_at DESC',
         mapper: (Map<String, Object?> row) => Message(
             id: row['id'] as String,
             text: row['text'] as String,
             updatedAt: row['updated_at'] as int),
-        arguments: [from, to, limit],
+        arguments: [from, to],
         queryableName: 'messages',
         isView: false);
   }

@@ -32,8 +32,8 @@ abstract class MessageDao {
   Stream<List<Message>> getOldestMessages(int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at <= :to AND updated_at >= :from ORDER BY updated_at DESC LIMIT :limit')
-  Stream<List<Message>> getMessagesBetween(int from, int to, int limit);
+      'SELECT * FROM messages WHERE updated_at <= :to AND updated_at >= :from ORDER BY updated_at DESC')
+  Stream<List<Message>> getMessagesBetween(int from, int to);
 }
 
 @Database(version: 1, entities: [Message])
@@ -86,9 +86,9 @@ class MessageStore implements MessageDao {
   }
 
   @override
-  Stream<List<Message>> getMessagesBetween(int from, int to, int limit) async* {
+  Stream<List<Message>> getMessagesBetween(int from, int to) async* {
     var dao = await _dao();
-    await for (var messages in dao.getMessagesBetween(from, to, limit)) {
+    await for (var messages in dao.getMessagesBetween(from, to)) {
       yield messages;
     }
   }

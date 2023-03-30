@@ -13,7 +13,8 @@ import 'package:get_it/get_it.dart' as _i1;
 import 'package:injectable/injectable.dart' as _i2;
 
 import 'database.dart' as _i3;
-import 'home.dart' as _i4;
+import 'home.dart' as _i5;
+import 'message_pager.dart' as _i4;
 
 extension GetItInjectableX on _i1.GetIt {
   // initializes the registration of main-scope dependencies inside of GetIt
@@ -27,8 +28,12 @@ extension GetItInjectableX on _i1.GetIt {
       environmentFilter,
     );
     gh.singleton<_i3.MessageStore>(_i3.MessageStore());
-    gh.factory<_i4.HomeViewModel>(
-        () => _i4.HomeViewModel(gh<_i3.MessageStore>()));
+    gh.factory<_i4.MessageDataSource>(
+        () => _i4.MessageDataSource(gh<_i3.MessageStore>()));
+    gh.factory<_i5.HomeViewModel>(() => _i5.HomeViewModel(
+          gh<_i3.MessageStore>(),
+          gh<_i4.MessageDataSource>(),
+        ));
     return this;
   }
 }
