@@ -36,8 +36,10 @@ class MessageDataSource extends ReverseChronologicalDataSource<Message> {
 }
 
 class MessagePager extends ReverseChronologicalPager<Message> {
-  MessagePager(MessageDataSource dataSource, int pageSize)
-      : super(dataSource, pageSize);
+  MessagePager(
+      {required MessageDataSource super.dataSource,
+      required super.initialPageSize,
+      required super.maxPageSize});
 
   @override
   int timestamp(Message item) {

@@ -141,7 +141,7 @@ class _$MessageDao extends MessageDao {
     int limit,
   ) {
     return _queryAdapter.queryListStream(
-        'SELECT * FROM messages WHERE updated_at > ?1 ORDER BY updated_at DESC LIMIT ?2',
+        'SELECT * FROM messages WHERE updated_at >= ?1 ORDER BY updated_at DESC LIMIT ?2',
         mapper: (Map<String, Object?> row) => Message(
             id: row['id'] as String,
             text: row['text'] as String,
@@ -157,7 +157,7 @@ class _$MessageDao extends MessageDao {
     int limit,
   ) {
     return _queryAdapter.queryListStream(
-        'SELECT * FROM messages WHERE updated_at < ?1 ORDER BY updated_at DESC LIMIT ?2',
+        'SELECT * FROM messages WHERE updated_at <= ?1 ORDER BY updated_at DESC LIMIT ?2',
         mapper: (Map<String, Object?> row) => Message(
             id: row['id'] as String,
             text: row['text'] as String,

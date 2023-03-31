@@ -25,7 +25,7 @@ class IntDataSource extends ReverseChronologicalDataSource<int> {
   Stream<List<int>> newer(int than, int limit) async* {
     assert(than >= start);
     assert(than <= end);
-    int from = than + 1;
+    int from = than;
     int to = min(from + limit - 1, end);
     yield List.generate(to - from + 1, (index) => to - index);
   }
@@ -34,7 +34,7 @@ class IntDataSource extends ReverseChronologicalDataSource<int> {
   Stream<List<int>> older(int than, int limit) async* {
     assert(than >= start);
     assert(than <= end);
-    int to = than - 1;
+    int to = than;
     int from = max(to - limit + 1, start);
     yield List.generate(to - from + 1, (index) => to - index);
   }
@@ -47,7 +47,10 @@ class IntDataSource extends ReverseChronologicalDataSource<int> {
 }
 
 class IntReverseChronologicalPager extends ReverseChronologicalPager<int> {
-  IntReverseChronologicalPager(super.dataSource, super.pageSize);
+  IntReverseChronologicalPager(
+      {required super.dataSource,
+      required super.initialPageSize,
+      required super.maxPageSize});
 
   @override
   int timestamp(int item) {
@@ -57,57 +60,81 @@ class IntReverseChronologicalPager extends ReverseChronologicalPager<int> {
 
 void main() {
   test('Reverse Chronological Pagination', () async {
-    final dataSource = IntDataSource(1, 10);
-    final pager = IntReverseChronologicalPager(dataSource, 5);
+    final dataSource = IntDataSource(1, 20);
+    final pager = IntReverseChronologicalPager(
+        dataSource: dataSource, initialPageSize: 5, maxPageSize: 10);
 
     await Future.delayed(const Duration(milliseconds: 0));
     var result = pager.items.value;
-    expect(result,
-      [10, 9, 8, 7, 6],
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [20, 19, 18, 17, 16],
     );
 
     pager.onEndReaching();
     await Future.delayed(const Duration(milliseconds: 0));
     result = pager.items.value;
-    expect(result,
-      [7, 6, 5, 4, 3],
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [20, 19, 18, 17, 16, 15, 14, 13, 12, 11],
     );
 
     pager.onEndReaching();
     await Future.delayed(const Duration(milliseconds: 0));
     result = pager.items.value;
-    expect(result,
-      [5, 4, 3, 2, 1],
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [15, 14, 13, 12, 11, 10, 9, 8, 7, 6],
     );
 
     pager.onEndReaching();
     await Future.delayed(const Duration(milliseconds: 0));
-    var previousResult = result;
     result = pager.items.value;
-    expect(result,
-      previousResult,
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+    );
+
+    pager.onEndReaching();
+    await Future.delayed(const Duration(milliseconds: 0));
+    result = pager.items.value;
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+    );
+    expect(pager.isAtEnd, true);
+
+    pager.onStartReaching();
+    await Future.delayed(const Duration(milliseconds: 0));
+    result = pager.items.value;
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [15, 14, 13, 12, 11, 10, 9, 8, 7, 6],
     );
 
     pager.onStartReaching();
     await Future.delayed(const Duration(milliseconds: 0));
     result = pager.items.value;
-    expect(result,
-      [8, 7, 6, 5, 4],
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [20, 19, 18, 17, 16, 15, 14, 13, 12, 11],
     );
 
     pager.onStartReaching();
     await Future.delayed(const Duration(milliseconds: 0));
     result = pager.items.value;
-    expect(result,
-      [10, 9, 8, 7, 6],
+    pager.onItemsRendered(result);
+    expect(
+      result,
+      [20, 19, 18, 17, 16, 15, 14, 13, 12, 11],
     );
-
-    pager.onStartReaching();
-    await Future.delayed(const Duration(milliseconds: 0));
-    previousResult = result;
-    result = pager.items.value;
-    expect(result,
-      previousResult,
-    );
+    expect(pager.isAtStart, true);
   });
 }

@@ -20,11 +20,11 @@ abstract class MessageDao {
   Stream<List<Message>> getLatestMessages(int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at > :timestamp ORDER BY updated_at DESC LIMIT :limit')
+      'SELECT * FROM messages WHERE updated_at >= :timestamp ORDER BY updated_at DESC LIMIT :limit')
   Stream<List<Message>> getMessagesNewerThan(int timestamp, int limit);
 
   @Query(
-      'SELECT * FROM messages WHERE updated_at < :timestamp ORDER BY updated_at DESC LIMIT :limit')
+      'SELECT * FROM messages WHERE updated_at <= :timestamp ORDER BY updated_at DESC LIMIT :limit')
   Stream<List<Message>> getMessagesOlderThan(int timestamp, int limit);
 
   @Query(

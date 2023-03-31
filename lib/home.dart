@@ -18,7 +18,7 @@ class HomeViewModel extends ViewModel {
   MessagePager messagePager;
 
   HomeViewModel(this.messageStore, MessageDataSource messageDataSource)
-      : messagePager = MessagePager(messageDataSource, 5) {
+      : messagePager = MessagePager(dataSource: messageDataSource, initialPageSize: 40, maxPageSize: 1000) {
     scrollController.addListener(_onScrollChanged);
   }
 
@@ -31,6 +31,8 @@ class HomeViewModel extends ViewModel {
   _ServerFetchStatus _serverFetchStatus = _ServerFetchStatus.none;
 
   final _uuid = const Uuid();
+
+  String get listKey => messagePager.key;
 
   Future<void> onPopulateClicked() async {
     _isProcessing.value = true;
@@ -53,7 +55,9 @@ class HomeViewModel extends ViewModel {
     }
   }
 
-  void onItemsReceived(List<Message> messages) {
+  void onItemsReceived(List<Message> messages) async {
+    // wait for the frame to be rendered
+    await Future.delayed(const Duration(seconds: 0));
     messagePager.onItemsRendered(messages);
   }
 
@@ -89,7 +93,7 @@ class HomeViewModel extends ViewModel {
 
   Future<void> _populate() async {
     final messages = <Message>[];
-    for (var i = 0; i < 250; i++) {
+    for (var i = 0; i < 1; i++) {
       final id = _uuid.v4();
       messages.add(Message(
         id: id,
@@ -116,7 +120,6 @@ class HomeViewModel extends ViewModel {
 }
 
 class HomePage extends BasePage {
-  final PageStorageKey _listKey = const PageStorageKey('messages');
   const HomePage({super.key});
 
   @override
@@ -148,31 +151,25 @@ class HomePage extends BasePage {
               return const Center(child: Text('No messages'));
             }
 
-            print(
-                '${messages.length} Messages: [${messages.first.updatedAt} ... ${messages.last.updatedAt}]');
-
             return ListView.separated(
-              key: _listKey,
+              key: ValueKey(viewModel.listKey),
               itemCount: messages.length,
               reverse: false,
               controller: viewModel.scrollController,
               findChildIndexCallback: (key) {
-                if (key is ValueKey<int>) {
-                  final i = messages.indexWhere((m) => m.updatedAt == key.value);
+                if (key is ValueKey<String>) {
+                  final i = messages.indexWhere((m) => m.id == key.value);
                   if (i < 0) {
-                    print('findChildIndexCallback: $key not found');
                     return null;
                   }
-                  print('findChildIndexCallback: $key found at $i');
                   return i;
                 }
-                print('findChildIndexCallback: $key not found');
                 return null;
               },
-              separatorBuilder: (_, index) => const SizedBox(height: 640),
+              separatorBuilder: (_, index) => const SizedBox(height: 16),
               itemBuilder: (_, index) {
                 return ListTile(
-                  key: ValueKey(messages[index].updatedAt),
+                  key: ValueKey(messages[index].id),
                   title: Text(messages[index].text),
                   subtitle: Text(DateTime.fromMillisecondsSinceEpoch(
                           messages[index].updatedAt * 1000)
@@ -222,12 +219,12 @@ extension on ScrollPosition {
   bool get isReachingEnd {
     if (userScrollDirection == ScrollDirection.forward) return false;
     if (isAtEnd) return true;
-    return pixels > 0.75 * (maxScrollExtent + viewportDimension);
+    return extentAfter < 2 * viewportDimension;
   }
 
   bool get isReachingStart {
     if (userScrollDirection == ScrollDirection.reverse) return false;
     if (isAtStart) return true;
-    return pixels < 0.25 * (maxScrollExtent + viewportDimension);
+    return extentBefore < 2 * viewportDimension;
   }
 }

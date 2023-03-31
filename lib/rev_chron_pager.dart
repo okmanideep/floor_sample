@@ -1,25 +1,32 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:jetpack/livedata.dart';
 
 abstract class ReverseChronologicalPager<T> {
   final MutableLiveData<List<T>> _items = MutableLiveData([]);
-  final int pageSize;
+  final int initialPageSize;
+  final int maxPageSize;
   final ReverseChronologicalDataSource<T> dataSource;
   StreamSubscription? _subscription;
   _Anchor _currentAnchor = _Anchor.nothing;
   _Anchor _fetchedAnchor = _Anchor.nothing;
-  bool _itemsUpdatedOnUI = true;
+  bool _itemsRendered = true;
 
-  ReverseChronologicalPager(this.dataSource, this.pageSize) {
-    _onAnchorChanged(_Anchor.latest(pageSize));
+  ReverseChronologicalPager(
+      {required this.dataSource,
+      required this.initialPageSize,
+      required this.maxPageSize}) {
+    _onAnchorChanged(_Anchor.latest(initialPageSize));
   }
+
+  String get key => _fetchedAnchor.key();
 
   // To be implemented by subclasses
   int timestamp(T item);
   LiveData<List<T>> get items => _items;
 
-  bool get isLoading => _currentAnchor != _fetchedAnchor || !_itemsUpdatedOnUI;
+  bool get isLoading => _currentAnchor != _fetchedAnchor || !_itemsRendered;
   bool get isAtStart => _fetchedAnchor is _Latest;
   bool get isAtEnd {
     final anchor = _fetchedAnchor;
@@ -42,7 +49,22 @@ abstract class ReverseChronologicalPager<T> {
       return;
     }
 
-    _onAnchorChanged(_Anchor.older(timestamp(_items.value.middle)));
+    if (_items.value.length < maxPageSize) {
+      if (currentAnchor is _Latest) {
+        _onAnchorChanged(_Anchor.latest(
+            min(currentAnchor.size + initialPageSize, maxPageSize)));
+      } else if (currentAnchor is _Between) {
+        _onAnchorChanged(_Anchor.older(timestamp(_items.value.first),
+            min(_items.value.length + initialPageSize, maxPageSize)));
+      }
+      return;
+    }
+
+    // item length is maxed out
+    final int targetPageSize = min(maxPageSize, 2 * initialPageSize);
+    _onAnchorChanged(_Anchor.older(
+        timestamp(_items.value[maxPageSize - (targetPageSize ~/ 2)]),
+        targetPageSize));
   }
 
   // called when fetching and adding older items to the data source
@@ -61,11 +83,26 @@ abstract class ReverseChronologicalPager<T> {
 
     if (_currentAnchor is _Latest) return;
 
-    _onAnchorChanged(_Anchor.newer(timestamp(_items.value.middle)));
+    final currentAnchor = _currentAnchor;
+    if (_items.value.length < maxPageSize) {
+      if (currentAnchor is _Oldest) {
+        _onAnchorChanged(_Anchor.oldest(
+            min(currentAnchor.size + initialPageSize, maxPageSize)));
+      } else if (currentAnchor is _Between) {
+        _onAnchorChanged(_Anchor.newer(timestamp(_items.value.last),
+            min(_items.value.length + initialPageSize, maxPageSize)));
+      }
+      return;
+    }
+
+    // item length is maxed out
+    final int targetPageSize = min(maxPageSize, 2 * initialPageSize);
+    _onAnchorChanged(_Anchor.newer(
+        timestamp(_items.value[(targetPageSize ~/ 2) - 1]), targetPageSize));
   }
 
   void onItemsRendered(List<T> items) {
-    _itemsUpdatedOnUI = items == _items.value;
+    _itemsRendered = items == _items.value;
   }
 
   void onDispose() {
@@ -75,7 +112,7 @@ abstract class ReverseChronologicalPager<T> {
   void _updateItems(List<T> items) {
     if (items == _items.value) return;
 
-    _itemsUpdatedOnUI = false;
+    _itemsRendered = false;
     _items.value = items;
   }
 
@@ -91,7 +128,6 @@ abstract class ReverseChronologicalPager<T> {
   }
 
   Stream<_Anchor> _listenToAnchor(_Anchor anchor) async* {
-    print('listening to anchor: $anchor');
     if (anchor is _Latest) {
       yield* _listenToLatest(anchor);
     } else if (anchor is _Oldest) {
@@ -109,7 +145,7 @@ abstract class ReverseChronologicalPager<T> {
     await for (final items in dataSource.latest(anchor.size)) {
       _updateItems(items);
       _fetchedAnchor =
-          _Anchor.latest(anchor.size, isAlsoOldest: items.length < pageSize);
+          _Anchor.latest(anchor.size, isAlsoOldest: items.length < anchor.size);
       yield _fetchedAnchor;
     }
   }
@@ -123,44 +159,41 @@ abstract class ReverseChronologicalPager<T> {
   }
 
   Stream<_Anchor> _listenToOlder(_Older anchor) async* {
-    await for (final items in dataSource.older(anchor.than, pageSize)) {
+    await for (final items in dataSource.older(anchor.than, anchor.size)) {
       final fetchedAnchor = _fetchedAnchor;
       if (items.isEmpty) {
         if (fetchedAnchor is _Latest) {
-          yield _Anchor.latest(pageSize, isAlsoOldest: true);
+          yield _Anchor.latest(anchor.size, isAlsoOldest: true);
         } else if (fetchedAnchor is _Between) {
-          yield _Anchor.oldest(pageSize);
+          yield _Anchor.oldest(anchor.size);
         }
-      } else if (items.length < pageSize) {
-        yield _Anchor.oldest(pageSize);
+      } else if(items.length < anchor.size) {
+        yield _Anchor.oldest(anchor.size);
       } else {
-        print('received ${items.length} older items');
-        final newAnchor = _Anchor.between(
+        yield _Anchor.between(
           timestamp(items.last),
           timestamp(items.first),
         );
-        yield newAnchor;
       }
     }
   }
 
   Stream<_Anchor> _listenToNewer(_Newer anchor) async* {
-    await for (final items in dataSource.newer(anchor.after, pageSize)) {
+    await for (final items in dataSource.newer(anchor.after, anchor.size)) {
       final fetchedAnchor = _fetchedAnchor;
       if (items.isEmpty) {
         if (fetchedAnchor is _Oldest) {
-          yield _Anchor.latest(pageSize, isAlsoOldest: true);
+          yield _Anchor.latest(anchor.size, isAlsoOldest: true);
         } else if (fetchedAnchor is _Between) {
-          yield _Anchor.latest(pageSize);
+          yield _Anchor.latest(anchor.size);
         }
-      } else if (items.length < pageSize) {
-        yield _Anchor.latest(pageSize);
+      } else if (items.length < anchor.size) {
+        yield _Anchor.latest(anchor.size);
       } else {
-        final newAnchor = _Anchor.between(
+        yield _Anchor.between(
           timestamp(items.last),
           timestamp(items.first),
         );
-        yield newAnchor;
       }
     }
   }
@@ -168,7 +201,6 @@ abstract class ReverseChronologicalPager<T> {
   Stream<_Anchor> _listenToBetween(_Between anchor) async* {
     await for (final items in dataSource.between(anchor.from, anchor.to)) {
       _updateItems(items);
-      print('received ${items.length} between items');
       _fetchedAnchor = anchor;
       yield _fetchedAnchor;
     }
@@ -184,17 +216,22 @@ abstract class ReverseChronologicalDataSource<T> {
 }
 
 abstract class _Anchor {
+  String key();
+
   static const _Anchor nothing = _Nothing();
   factory _Anchor.latest(int size, {bool isAlsoOldest = false}) =>
       _Latest(size, isAlsoOldest: isAlsoOldest);
   factory _Anchor.oldest(int size) => _Oldest(size);
-  factory _Anchor.older(int than) => _Older(than);
-  factory _Anchor.newer(int than) => _Newer(than);
+  factory _Anchor.older(int than, int size) => _Older(than, size);
+  factory _Anchor.newer(int than, int size) => _Newer(than, size);
   factory _Anchor.between(int from, int to) => _Between(from, to);
 }
 
 class _Nothing implements _Anchor {
   const _Nothing();
+
+  @override
+  String key() => 'Nothing';
 
   @override
   String toString() => 'Nothing';
@@ -206,25 +243,69 @@ class _Latest implements _Anchor {
   const _Latest(this.size, {this.isAlsoOldest = false});
 
   @override
+  String key() => 'Latest';
+
+  @override
   String toString() => 'Latest($size, isAlsoOldest: $isAlsoOldest)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Latest &&
+          runtimeType == other.runtimeType &&
+          size == other.size &&
+          isAlsoOldest == other.isAlsoOldest;
+
+  @override
+  int get hashCode => size.hashCode ^ isAlsoOldest.hashCode;
 }
 
 class _Newer implements _Anchor {
   final int after;
+  final int size;
 
-  const _Newer(this.after);
+  const _Newer(this.after, this.size);
 
   @override
-  String toString() => 'Newer($after)';
+  String key() => 'Newer($after)';
+
+  @override
+  String toString() => 'Newer(after: $after, size: $size)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Newer &&
+          runtimeType == other.runtimeType &&
+          after == other.after &&
+          size == other.size;
+
+  @override
+  int get hashCode => after.hashCode ^ size.hashCode;
 }
 
 class _Older implements _Anchor {
   final int than;
+  final int size;
 
-  const _Older(this.than);
+  const _Older(this.than, this.size);
 
   @override
-  String toString() => 'Older($than)';
+  String key() => 'Older($than)';
+
+  @override
+  String toString() => 'Older(than: $than, size: $size)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Older &&
+          runtimeType == other.runtimeType &&
+          than == other.than &&
+          size == other.size;
+
+  @override
+  int get hashCode => than.hashCode ^ size.hashCode;
 }
 
 class _Between implements _Anchor {
@@ -234,7 +315,21 @@ class _Between implements _Anchor {
   const _Between(this.from, this.to);
 
   @override
+  String key() => 'Between($to)';
+
+  @override
   String toString() => 'Between($from, $to)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Between &&
+          runtimeType == other.runtimeType &&
+          from == other.from &&
+          to == other.to;
+
+  @override
+  int get hashCode => from.hashCode ^ to.hashCode;
 }
 
 class _Oldest implements _Anchor {
@@ -243,7 +338,18 @@ class _Oldest implements _Anchor {
   const _Oldest(this.size);
 
   @override
+  String key() => 'Oldest';
+
+  @override
   String toString() => 'Oldest($size)';
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _Oldest && runtimeType == other.runtimeType && size == other.size;
+
+  @override
+  int get hashCode => size.hashCode;
 }
 
 extension MiddleItem<T> on List<T> {
