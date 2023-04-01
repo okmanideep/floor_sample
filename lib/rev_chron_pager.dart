@@ -167,7 +167,7 @@ abstract class ReverseChronologicalPager<T> {
         } else if (fetchedAnchor is _Between) {
           yield _Anchor.oldest(anchor.size);
         }
-      } else if(items.length < anchor.size) {
+      } else if (items.length < anchor.size) {
         yield _Anchor.oldest(anchor.size);
       } else {
         yield _Anchor.between(
@@ -346,7 +346,9 @@ class _Oldest implements _Anchor {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is _Oldest && runtimeType == other.runtimeType && size == other.size;
+      other is _Oldest &&
+          runtimeType == other.runtimeType &&
+          size == other.size;
 
   @override
   int get hashCode => size.hashCode;
